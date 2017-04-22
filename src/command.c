@@ -135,7 +135,7 @@ _sendf(uint8_t parserid, ...)
         while (num_params--) {
             if (p > maxend) {
                 writeb(&in_sendf, 0);
-                output("Overflow %c %*s", parserid, maxend-p, p);
+                output("Overflow %c %*s", parserid, maxend-buf, buf);
                 shutdown("Message encode error");
             }
             uint8_t t = READP(*param_types);
