@@ -133,8 +133,11 @@ _sendf(uint8_t parserid, ...)
         const uint8_t *param_types = READP(cp->param_types);
         *p++ = READP(cp->msg_id);
         while (num_params--) {
-            if (p > maxend)
-                goto error;
+            if (p > maxend) {
+                writeb(&in_sendf, 0);
+                output("Overflow %c %*s", parserid, maxend-p, p);
+                shutdown("Message encode error");
+            }
             uint8_t t = READP(*param_types);
             param_types++;
             uint32_t v;
@@ -175,7 +178,9 @@ _sendf(uint8_t parserid, ...)
                 break;
             }
             default:
-                goto error;
+                writeb(&in_sendf, 0);
+                output("Invalid %c %c", parserid, t);
+                shutdown("Message encode error 1");
             }
         }
         va_end(args);
@@ -193,8 +198,6 @@ _sendf(uint8_t parserid, ...)
 done:
     writeb(&in_sendf, 0);
     return;
-error:
-    shutdown("Message encode error");
 }
 
 static void
