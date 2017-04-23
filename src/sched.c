@@ -223,6 +223,11 @@ run_shutdown(void)
     shutdown_status = 1;
     irq_enable();
 
+    extern uint8_t debug_parserid, debug_t;
+    extern void *debug_p, *debug_maxend, *debug_buf;
+    output("last %c %c %hu %hu %hu"
+           , debug_parserid, debug_t, debug_buf, debug_p, debug_maxend);
+
     sendf("shutdown clock=%u static_string_id=%hu", cur, shutdown_reason);
 }
 

@@ -109,6 +109,9 @@ error:
 
 static uint8_t in_sendf;
 
+uint8_t debug_parserid, debug_t;
+void *debug_p, *debug_maxend, *debug_buf;
+
 // Encode a message and transmit it
 void
 _sendf(uint8_t parserid, ...)
@@ -124,6 +127,8 @@ _sendf(uint8_t parserid, ...)
     char *buf = console_get_output(max_size + MESSAGE_MIN);
     if (!buf)
         goto done;
+    debug_buf = buf;
+    debug_parserid = parserid;
     char *p = &buf[MESSAGE_HEADER_SIZE];
     if (max_size) {
         char *maxend = &p[max_size];
@@ -133,12 +138,13 @@ _sendf(uint8_t parserid, ...)
         const uint8_t *param_types = READP(cp->param_types);
         *p++ = READP(cp->msg_id);
         while (num_params--) {
+            debug_p = p;
+            debug_maxend = maxend;
             if (p > maxend) {
-                writeb(&in_sendf, 0);
-                output("Overflow %c %*s", parserid, maxend-buf, buf);
                 shutdown("Message encode error");
             }
             uint8_t t = READP(*param_types);
+            debug_t = t;
             param_types++;
             uint32_t v;
             switch (t) {
@@ -178,8 +184,6 @@ _sendf(uint8_t parserid, ...)
                 break;
             }
             default:
-                writeb(&in_sendf, 0);
-                output("Invalid %c %c", parserid, t);
                 shutdown("Message encode error 1");
             }
         }
