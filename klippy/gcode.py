@@ -81,7 +81,7 @@ class GCodeParser:
         for eventtime, data in self.input_log:
             logging.info("Read %f: %s" % (eventtime, repr(data)))
     # Parse input into commands
-    args_r = re.compile('([a-zA-Z_]+|[a-zA-Z*])')
+    args_r = re.compile('([A-Z_]+|[A-Z*])')
     def process_commands(self, commands, need_ack=True):
         prev_need_ack = self.need_ack
         for line in commands:
@@ -91,17 +91,17 @@ class GCodeParser:
             if cpos >= 0:
                 line = line[:cpos]
             # Break command into parts
-            parts = self.args_r.split(line)[1:]
-            params = { parts[i].upper(): parts[i+1].strip()
+            parts = self.args_r.split(line.upper())[1:]
+            params = { parts[i]: parts[i+1].strip()
                        for i in range(0, len(parts), 2) }
             params['#original'] = origline
-            if parts and parts[0].upper() == 'N':
+            if parts and parts[0] == 'N':
                 # Skip line number at start of command
                 del parts[:2]
             if not parts:
                 self.cmd_default(params)
                 continue
-            params['#command'] = cmd = parts[0].upper() + parts[1].strip()
+            params['#command'] = cmd = parts[0] + parts[1].strip()
             # Invoke handler for command
             self.need_ack = need_ack
             handler = self.gcode_handlers.get(cmd, self.cmd_default)
@@ -185,6 +185,22 @@ class GCodeParser:
         if default is not None:
             return default
         raise error("Error on '%s': missing %s" % (params['#original'], name))
+    extended_r = re.compile(
+        r'^\s*(?:N[0-9]+\s*)?'
+        r'(?P<cmd>[a-zA-Z_][a-zA-Z_]+)(?:\s+|$)'
+        r'(?P<args>[^#*;]*?)'
+        r'\s*(?:[#*;].*)?$')
+    def get_extended_params(self, params):
+        m = self.extended_r.match(params['#original'])
+        if m is None:
+            # Not an "extended" command
+            return params
+        eargs = m.group('args')
+        try:
+            eparams = [earg.split('=', 1) for earg in eargs.split()]
+            return { k.upper(): v for k, v in eparams }
+        except ValueError as e:
+            raise error("Malformed command '%s'" % (params['#original'],))
     # Temperature wrappers
     def get_temp(self):
         if not self.is_printer_ready:
@@ -276,8 +292,8 @@ class GCodeParser:
         'G1', 'G4', 'G20', 'G28', 'G90', 'G91', 'G92',
         'M82', 'M83', 'M18', 'M105', 'M104', 'M109', 'M112', 'M114', 'M115',
         'M140', 'M190', 'M106', 'M107', 'M206', 'M400',
-        'IGNORE', 'QUERY_ENDSTOPS', 'PID_TUNE', 'RESTART', 'FIRMWARE_RESTART',
-        'STATUS', 'HELP']
+        'IGNORE', 'QUERY_ENDSTOPS', 'PID_TUNE', 'SET_SERVO',
+        'RESTART', 'FIRMWARE_RESTART', 'STATUS', 'HELP']
     cmd_G1_aliases = ['G0']
     def cmd_G1(self, params):
         # Move
@@ -442,6 +458,14 @@ class GCodeParser:
         temp = self.get_float('S', params)
         heater.start_auto_tune(temp)
         self.bg_temp(heater)
+    cmd_SET_SERVO_help = "Set servo angle"
+    def cmd_SET_SERVO(self, params):
+        params = self.get_extended_params(params)
+        angle = self.get_float('ANGLE', params)
+        logging.debug("SET_SERVO %.3f : %s" % (angle, params))
+        servo = self.printer.objects.get("servo %s" % (params.get("SERVO", ""),))
+        if servo is None:
+            raise error("Servo not configured")
     def prep_restart(self):
         if self.is_printer_ready:
             self.respond_info("Preparing to restart...")
