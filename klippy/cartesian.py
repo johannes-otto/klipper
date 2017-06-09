@@ -23,6 +23,8 @@ class CartKinematics:
         self.steppers[0].set_max_jerk(max_xy_halt_velocity, max_accel)
         self.steppers[1].set_max_jerk(max_xy_halt_velocity, max_accel)
         self.steppers[2].set_max_jerk(0., self.max_z_accel)
+    def get_position(self):
+        return [s.mcu_stepper.get_commanded_position() for s in self.steppers]
     def set_position(self, newpos):
         for i in StepList:
             self.steppers[i].mcu_stepper.set_position(newpos[i])
@@ -73,6 +75,8 @@ class CartKinematics:
     def query_endstops(self, print_time):
         endstops = [(s, s.query_endstop(print_time)) for s in self.steppers]
         return [(s.name, es.query_endstop_wait()) for s, es in endstops]
+    def get_z_steppers(self):
+        return [self.steppers[2]]
     def _check_endstops(self, move):
         end_pos = move.end_pos
         for i in StepList:

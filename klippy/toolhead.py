@@ -331,6 +331,8 @@ class ToolHead:
         self._flush_lookahead()
         self.commanded_pos[:] = newpos
         self.kin.set_position(newpos)
+    def reset_position(self):
+        self.set_position(self.kin.get_position() + [self.commanded_pos[3]])
     def move(self, newpos, speed):
         speed = min(speed, self.max_speed)
         move = Move(self, self.commanded_pos, newpos, speed)
@@ -372,6 +374,8 @@ class ToolHead:
         self.extruder = extruder
         self.move_queue.set_extruder(extruder)
         self.commanded_pos[3] = extrude_pos
+    def get_z_steppers(self):
+        return self.kin.get_z_steppers()
     # Misc commands
     def stats(self, eventtime):
         buffer_time = 0.

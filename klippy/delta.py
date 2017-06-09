@@ -96,6 +96,9 @@ class DeltaKinematics:
         dist = math.sqrt(inv_nmag_sq * (self.arm_length2 - r_sq))
 
         return matrix_sub(circumcenter, matrix_mul(normal, dist))
+    def get_position(self):
+        spos = [s.mcu_stepper.get_commanded_position() for s in self.steppers]
+        return self._actuator_to_cartesian(spos)
     def set_position(self, newpos):
         pos = self._cartesian_to_actuator(newpos)
         for i in StepList:
@@ -136,6 +139,8 @@ class DeltaKinematics:
     def query_endstops(self, print_time):
         endstops = [(s, s.query_endstop(print_time)) for s in self.steppers]
         return [(s.name, es.query_endstop_wait()) for s, es in endstops]
+    def get_z_steppers(self):
+        return self.steppers
     def check_move(self, move):
         end_pos = move.end_pos
         xy2 = end_pos[0]**2 + end_pos[1]**2
