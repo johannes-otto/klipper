@@ -88,17 +88,19 @@ class MCU_stepper:
         ret = self._ffi_lib.stepcompress_set_homing(self._stepqueue, 0)
         if ret:
             raise error("Internal error in stepcompress")
+    def note_homing_triggered(self):
         ret = self._ffi_lib.stepcompress_reset(self._stepqueue, 0)
         if ret:
             raise error("Internal error in stepcompress")
-    def note_homing_triggered(self):
+        if self._mcu.is_fileoutput():
+            return
         params = self._mcu.serial.send_with_response(
             self._get_position_cmd.encode(self._oid),
             'stepper_position', self._oid)
         pos = params['pos']
         if self._invert_dir:
             pos = -pos
-        self._mcu_position_offset = pos - self._commanded_pos
+        self._commanded_pos = pos - self._mcu_position_offset
     def reset_step_clock(self, mcu_time):
         clock = int(mcu_time * self._mcu_freq)
         ret = self._ffi_lib.stepcompress_reset(self._stepqueue, clock)
@@ -202,6 +204,9 @@ class MCU_endstop:
     def _check_busy(self, eventtime):
         # Check if need to send an end_stop_query command
         if self._mcu.is_fileoutput():
+            if self._homing:
+                for s in self._steppers:
+                    s.note_homing_triggered()
             return False
         last_sent_time = self._last_state.get('#sent_time', -1.)
         if last_sent_time >= self._min_query_time:
